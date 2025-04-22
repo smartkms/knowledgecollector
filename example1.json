@@ -1,0 +1,35 @@
+{
+    "typefield": "messages",
+    "platform": "teams",
+    "id": "1617053000555",
+    "timestamp": "2021-03-29T23:43:20.555Z",
+    "content": {
+      "channelId": "splosni-kanal",
+      "messages": [
+        {
+          "createdDateTime": "2021-03-29T23:40:00.000Z",
+          "user": {
+            "id": "tris_zlatokljuc",
+            "displayName": "Trdoglav Trisa"
+          },
+          "body": "Ali je kdo že pogledal osnutek dizajna za mobilno aplikacijo?"
+        },
+        {
+          "createdDateTime": "2021-03-29T23:41:30.123Z",
+          "user": {
+            "id": "muca_copatarica",
+            "displayName": "Muca Copatarica"
+          },
+          "body": "Jaz sem ga na hitro preletela. Na prvi pogled se mi zdi v redu, ampak bi morda lahko dodali še temno temo."
+        },
+        {
+          "createdDateTime": "2021-03-29T23:42:45.678Z",
+          "user": {
+            "id": "tris_zlatokljuc",
+            "displayName": "Trdoglav Trisa"
+          },
+          "body": "Dobro idejo, Muca Copatarica. Bom predlagal oblikovalcem."
+        }
+      ]
+    }
+  }

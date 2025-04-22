@@ -1,0 +1,67 @@
+{
+    "typefield": "messages",
+    "platform": "discord",
+    "id": "1617052000111",
+    "timestamp": "2021-03-29T23:33:20.111Z",
+    "content": {
+      "channelId": "projekt-alpha-diskusija",
+      "messages": [
+        {
+          "createdDateTime": "2021-03-29T23:30:00.000Z",
+          "user": {
+            "id": "vodja-projekta",
+            "displayName": "Marko Novak"
+          },
+          "body": "Ekipa, lepo pozdravljeni. Začenjamo z implementacijo novega modula za projekt Alpha. Prosim, preglejte specifikacije, ki sem jih delil v dokumentu."
+        },
+        {
+          "createdDateTime": "2021-03-29T23:31:15.555Z",
+          "user": {
+            "id": "razvijalec1",
+            "displayName": "Nina Kovač"
+          },
+          "body": "Živjo Marko, hvala za dokument. Imam eno vprašanje glede integracije z obstoječim sistemom. Ali moramo uporabiti REST API ali gRPC?"
+        },
+        {
+          "createdDateTime": "2021-03-29T23:32:00.999Z",
+          "user": {
+            "id": "vodja-projekta",
+            "displayName": "Marko Novak"
+          },
+          "body": "Dobra točka, Nina. Za integracijo z obstoječim sistemom bomo uporabili REST API. Poskrbite, da boste sledili navodilom za avtentikacijo, ki so opisana na strani 5 dokumenta."
+        },
+        {
+          "createdDateTime": "2021-03-29T23:33:05.222Z",
+          "user": {
+            "id": "oblikovalec1",
+            "displayName": "Luka Horvat"
+          },
+          "body": "Živjo! Jaz imam vprašanje glede uporabniškega vmesnika. Ali obstajajo kakšne predloge za stil ali komponente, ki bi jih morali uporabiti?"
+        },
+        {
+          "createdDateTime": "2021-03-29T23:34:00.000Z",
+          "user": {
+            "id": "vodja-projekta",
+            "displayName": "Marko Novak"
+          },
+          "body": "Luka, prosim, uporabite obstoječo knjižnico komponent UI, ki smo jo definirali v prejšnji fazi projekta. Dokumentacijo zanjo najdete na tem naslovu [povezava do dokumentacije]. Če imate kakšne posebne potrebe, se pogovorimo."
+        },
+        {
+          "createdDateTime": "2021-03-29T23:35:10.777Z",
+          "user": {
+            "id": "razvijalec2",
+            "displayName": "Maja Zupan"
+          },
+          "body": "Hvala za pojasnila! Samo še eno vprašanje glede obravnave napak. Ali obstajajo kakšne specifične kode napak, ki jih moramo implementirati?"
+        },
+        {
+          "createdDateTime": "2021-03-29T23:36:00.333Z",
+          "user": {
+            "id": "vodja-projekta",
+            "displayName": "Marko Novak"
+          },
+          "body": "Maja, da, v dokumentu na strani 8 so opisane standardne kode napak, ki jih moramo uporabiti za ta modul. Prosim, držite se teh smernic."
+        }
+      ]
+    }
+  }
