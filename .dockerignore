@@ -1,0 +1,18 @@
+# .dockerignore
+
+knowledgecollector/
+
+.venv/
+venv/
+
+__pycache__/
+*.pyc
+
+.git/
+
+*.log
+.env
+*.example
+
+uv_minimal_example/
+requirements/

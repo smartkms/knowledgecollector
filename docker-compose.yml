@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  redis:
+    image: 'redis:7-alpine'
+    ports:
+     - "6379:6379"
+    networks:
+     - app_network
+    
+  worker:
+    build: . 
+    container_name: worker
+    command: ["/app/.venv/bin/python", "-m", "knowledge_collector.worker"]
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+     - redis
+    networks:
+     - app_network
+
+  parser:
+    build: . 
+    container_name: parser
+    command: ["/app/.venv/bin/python", "-m", "knowledge_collector.parser"]
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+     - redis
+    networks:
+     - app_network
+
+  job_handler:
+    build: .
+    container_name: job_handler
+    command: ["/app/.venv/bin/python", "-m", "knowledge_collector.job_handler"]
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
+    
