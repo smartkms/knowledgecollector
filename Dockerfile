@@ -13,9 +13,6 @@ WORKDIR /app
 RUN uv sync --frozen --no-cache
 
 # Copy the application into the container.
-COPY ./assets /app/assets
-COPY ./.env /app/.env
-COPY ./uv_minimal_example /app/uv_minimal_example
+COPY . /app
 
-# Run the application.
-CMD ["/app/.venv/bin/fastapi", "run", "uv_minimal_example/main.py", "--port", "8000", "--host", "0.0.0.0"]
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

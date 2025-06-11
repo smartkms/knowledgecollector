@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "platform": { "type": "string", "enum": ["discord", "slack", "onedrive"] },
+    "server_id": { "type": "string" },
+    "channel_id": { "type": "string" },
+    "frequency": { "type": "string", "pattern": "^P(T(\\d+H)?(\\d+M)?)?$" }
+  },
+  "required": ["platform", "server_id", "channel_id", "frequency"]
+}

@@ -3,48 +3,55 @@ version: '3.8'
 services:
   redis:
     image: 'redis:7-alpine'
-    ports:
-     - "6379:6379"
-    networks:
-     - app_network
-    
-  worker:
-    build: . 
-    container_name: worker
-    command: ["/app/.venv/bin/python", "-m", "knowledge_collector.worker"]
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    depends_on:
-     - redis
-    networks:
-     - app_network
+    ports: ["6379:6379"]
 
-  parser:
-    build: . 
-    container_name: parser
-    command: ["/app/.venv/bin/python", "-m", "knowledge_collector.parser"]
+  mongo:
+    image: 'mongo:latest'
+    ports: ["27017:27017"]
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    depends_on:
-     - redis
-    networks:
-     - app_network
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    volumes:
+      - mongo-data:/data/db
 
-  job_handler:
+  api:
     build: .
-    container_name: job_handler
-    command: ["/app/.venv/bin/python", "-m", "knowledge_collector.job_handler"]
+    container_name: api
+    command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - MONGO_URI=mongodb://mongo:27017/knowledge_db
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
       - redis
-    networks:
-      - app_network
+      - mongo
+    ports:
+      - "8000:8000"
 
-networks:
-  app_network:
-    driver: bridge
-    
+  scheduler:
+    build: .
+    container_name: scheduler
+    command: ["python", "scheduler.py"]
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MONGO_URI=mongodb://mongo:27017/knowledge_db
+    depends_on:
+      - redis
+      - mongo
+
+  fetch_worker:
+    build: .
+    container_name: fetch_worker
+    command: ["python", "fetch_worker.py"]
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MONGO_URI=mongodb://mongo:27017/knowledge_db
+    depends_on:
+      - redis
+      - mongo
+
+volumes:
+  mongo-data:
