@@ -2,7 +2,7 @@ import asyncio
 import os
 import json
 from datetime import datetime, timezone
-from .discord_api import fetch_messages
+from .discord_client import fetch_messages
 from .config import CHANNEL_ID
 
 async def main(limit: int = 50):
