@@ -3,6 +3,7 @@ import os
 import json
 from datetime import datetime, timezone
 from .discord_client import fetch_messages
+from .discord_service import process_attachments  # Import attachment logic
 from .config import CHANNEL_ID
 
 async def main(limit: int = 50):
@@ -43,13 +44,20 @@ async def main(limit: int = 50):
     # ─── 5. Normalize messages ───
     normalized = []
     for m in all_new:
+        # Process attachments if they exist
+        attachments = []
+        if "attachments" in m and m["attachments"]:
+            attachments = await process_attachments(m["attachments"])  # Call attachment logic
+
+        # Normalize the message
         normalized.append({
             "createdDateTime": m["timestamp"],      # ISO timestamp
             "user": {
                 "id": m["author"]["id"],
                 "displayName": m["author"]["username"]
             },
-            "body": m.get("content", "")
+            "body": m.get("content", ""),
+            "attachments": attachments  # Include processed attachments
         })
 
     # ─── 6. Write to JSON ───
