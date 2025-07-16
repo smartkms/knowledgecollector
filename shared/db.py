@@ -4,12 +4,16 @@ from shared.config import SETTINGS
 import isodate
 from datetime import datetime
 
-client = MongoClient(SETTINGS.MONGO_URI)
-db = client.get_default_database()
-subs_coll = db["subscriptions"]
+# Initialize MongoDB client
+default_db = MongoClient(SETTINGS.MONGO_URI).get_default_database()
 
+# Subscriptions collection
+default_subs = default_db["subscriptions"]
 
-def create_subscription(user_id, platform, server_id, channel_id, frequency):
+# Messages collection
+default_msgs = default_db["messages"]
+
+def create_subscription(user_id: str, platform: str, server_id: str, channel_id: str, frequency: str) -> dict:
     now = datetime.utcnow()
     freq_delta = isodate.parse_duration(frequency)
     next_run = now + freq_delta
@@ -23,36 +27,49 @@ def create_subscription(user_id, platform, server_id, channel_id, frequency):
         "next_run": next_run,
         "active": True,
     }
-    result = subs_coll.insert_one(doc)
-    return {**doc, "id": str(result.inserted_id)}
+    res = default_subs.insert_one(doc)
+    return {**doc, "id": str(res.inserted_id)}
 
-
-def get_subscription(sub_id):
-    doc = subs_coll.find_one({"_id": ObjectId(sub_id)})
+def get_subscription(sub_id: str) -> dict | None:
+    doc = default_subs.find_one({"_id": ObjectId(sub_id)})
     if not doc:
         return None
     doc["id"] = str(doc["_id"])
     return doc
 
+def list_subscriptions(user_id: str) -> list[dict]:
+    docs = default_subs.find({"user_id": user_id, "active": True})
+    return [{**doc, "id": str(doc["_id"])} for doc in docs]
 
-def list_subscriptions(user_id):
-    docs = subs_coll.find({"user_id": user_id, "active": True})
-    result = []
-    for doc in docs:
-        doc["id"] = str(doc["_id"])
-        result.append(doc)
-    return result
-
-
-def update_subscription(sub_id, data):
+def update_subscription(sub_id: str, data: dict) -> dict:
     freq_delta = isodate.parse_duration(data["frequency"])
-    now = datetime.utcnow()
-    next_run = now + freq_delta
-    subs_coll.update_one(
-        {"_id": ObjectId(sub_id)}, {"$set": {**data, "next_run": next_run}}
+    next_run = datetime.utcnow() + freq_delta
+    default_subs.update_one(
+        {"_id": ObjectId(sub_id)},
+        {"$set": {**data, "next_run": next_run}}
     )
     return get_subscription(sub_id)
 
+def delete_subscription(sub_id: str) -> None:
+    default_subs.update_one(
+        {"_id": ObjectId(sub_id)},
+        {"$set": {"active": False}}
+    )
 
-def delete_subscription(sub_id):
-    subs_coll.update_one({"_id": ObjectId(sub_id)}, {"$set": {"active": False}})
+    # Message helpers
+def insert_message(parsed: dict) -> str:
+    """
+    Insert a parsed message into MongoDB and return its string ID.
+    """
+    res = default_msgs.insert_one(parsed)
+    return str(res.inserted_id)
+
+def get_message(message_id: str) -> dict | None:
+    """
+    Retrieve a message document by its ID.
+    """
+    doc = default_msgs.find_one({"_id": ObjectId(message_id)})
+    if not doc:
+        return None
+    doc["id"] = str(doc["_id"])
+    return doc

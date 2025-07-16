@@ -2,148 +2,105 @@ import os
 import requests
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-
-# from shared.queue import enqueue_message
-# from shared.db import db
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
-from shared.storage import (
-    client as minio_client,
-)  # Assuming this is the MinIO client setup
 
+from shared.config import SETTINGS
+from shared.storage import upload_stream, ensure_bucket, client as minio_client
+from shared.db import insert_message
+from shared.queue import enqueue_message_ids
 
-load_dotenv()
+SLACK_BOT_TOKEN   = SETTINGS.SLACK_BOT_TOKEN
+DEFAULT_CHANNEL   = SETTINGS.SLACK_CHANNEL_ID
+ATTACHMENTS_BUCKET = "slack-attachments"
 
-SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN")
-SLACK_CHANNEL_ID = os.getenv("SLACK_CHANNEL_ID")
-
-
-def fetch_slack(channel_id, subscription_id, requested_by):
-    client = WebClient(token=SLACK_BOT_TOKEN)
-    try:
-        response = client.conversations_history(channel=channel_id, limit=100)
-        messages = response["messages"]
-    except SlackApiError as e:
-        print("Error fetching Slack messages:", e)
-        return
-
-    for raw in messages:
-        parsed = {
-            "platform": "slack",
-            "channel_id": channel_id,
-            "user": raw.get("user"),
-            "text": raw.get("text"),
-            "ts": raw.get("ts"),
-            "subscription_id": subscription_id,
-            "requested_by": requested_by,
-            "fetched_at": datetime.utcnow().isoformat(),
-        }
-        print("Parsed message:", parsed)
-        # db["messages"].insert_one(parsed)
-        # enqueue_message(parsed)
-
-
-def test_slack_channel(channel_id: str, message_limit: int = 5):
+def fetch_slack_streaming(channel_id: str = DEFAULT_CHANNEL,
+                          subscription_id: str = DEFAULT_CHANNEL,
+                          requested_by: str = "system",
+                          limit: int = 100) -> list[str]:
     """
-    try:
-        resp = client.conversations_join(channel=channel_id)
-    except SlackApiError as e:
-        print(f"❌ Failed joining channel {channel_id}: {e.response['error']}")
-        return"""
-    token = os.getenv("SLACK_BOT_TOKEN")
-
-    client = WebClient(token=token)
-
-    try:
-        resp = client.conversations_history(channel=channel_id, limit=message_limit)
-    except SlackApiError as e:
-        print(f"❌ Slack API Error: {e.response['error']}")
-        return
-
-    messages = resp.get("messages", [])
-    print(f"Showing {len(messages)} messages from channel {channel_id}:")
-    for msg in messages:
-        ts = msg.get("ts")
-        user = msg.get("user", "unknown")
-        text = msg.get("text", "")
-        print(f"• [{ts}] <{user}> {text}")
-
-
-def fetch_slack_streaming(
-    channel_id=SLACK_CHANNEL_ID, subscription_id="0", requested_by=0
-):
+    Fetch the most recent `limit` messages from a Slack channel,
+    upload any attachments to MinIO, persist each message to Mongo,
+    and return the list of new message IDs.
+    """
     client = WebClient(token=SLACK_BOT_TOKEN)
     try:
-        resp = client.conversations_history(channel=channel_id, limit=100)
+        resp = client.conversations_history(channel=channel_id, limit=limit)
         messages = resp.get("messages", [])
     except SlackApiError as e:
-        print("Slack API Error:", e.response["error"])
-        return
+        print("Slack API Error:", e.response.get("error"))
+        return []
+
+    new_ids: list[str] = []
+
+    # Ensure bucket exists once
+    ensure_bucket(ATTACHMENTS_BUCKET)
 
     for raw in messages:
+        # Base parsed record
         parsed = {
-            "platform": "slack",
-            "channel_id": channel_id,
-            "user": raw.get("user"),
-            "text": raw.get("text"),
-            "ts": raw.get("ts"),
+            "platform":        "slack",
+            "channel_id":      channel_id,
+            "user":            raw.get("user"),
+            "text":            raw.get("text", ""),
+            "ts":              raw.get("ts"),
             "subscription_id": subscription_id,
-            "requested_by": requested_by,
-            "fetched_at": datetime.utcnow().isoformat(),
-            "attachments": [],
+            "requested_by":    requested_by,
+            "fetched_at":      datetime.utcnow().isoformat(),
+            "attachments":     []
         }
 
         # Stream each file directly into MinIO
         for f in raw.get("files", []):
-            file_id = f["id"]
-            filename = f["name"]
-            # Slack provides url_private_download for direct file content
-            url = f.get("url_private_download") or f.get("url_private")
-            headers = {"Authorization": f"Bearer {SLACK_BOT_TOKEN}"}
+            file_id   = f["id"]
+            filename  = f["name"]
+            url       = f.get("url_private_download", f.get("url_private"))
+            headers   = {"Authorization": f"Bearer " + SLACK_BOT_TOKEN}
 
-            # Open a streaming GET
             r = requests.get(url, headers=headers, stream=True)
             r.raise_for_status()
 
-            # Determine size and content type
-            length = int(r.headers.get("Content-Length", 0))
+            length       = int(r.headers.get("Content-Length", 0))
             content_type = r.headers.get("Content-Type", "application/octet-stream")
+            object_name  = f"{subscription_id}/{file_id}_{filename}"
 
-            # Prepare bucket and object path
-            bucket_name = "slack-attachments"
-            object_name = f"{subscription_id}/{file_id}_{filename}"
-
-            # Ensure bucket exists
-            if not minio_client.bucket_exists(bucket_name):
-                minio_client.make_bucket(bucket_name)
-
-            # Stream upload into MinIO
-            minio_client.put_object(
-                bucket_name=bucket_name,
+            upload_stream(
+                bucket_name=ATTACHMENTS_BUCKET,
                 object_name=object_name,
-                data=r.raw,
+                stream=r.raw,
                 length=length,
-                content_type=content_type,
+                content_type=content_type
             )
 
-            # (Optionally) generate a presigned URL
+            # Generate a presigned URL for later retrieval
             public_url = minio_client.get_presigned_url(
-                "GET", bucket_name, object_name, expires=timedelta(seconds=3600)
+                "GET", ATTACHMENTS_BUCKET, object_name,
+                expires=timedelta(hours=1)
             )
 
-            parsed["attachments"].append(
-                {
-                    "file_id": file_id,
-                    "filename": filename,
-                    "minio_object": object_name,
-                    "url": public_url,
-                }
-            )
+            parsed["attachments"].append({
+                "file_id":      file_id,
+                "filename":     filename,
+                "minio_object": object_name,
+                "url":          public_url
+            })
 
-        # Insert into Mongo and enqueue for downstream processing
-        print(f"File available at: {public_url}")
+            print(f"Uploaded attachment → {public_url}")
 
+        # Persist to Mongo and collect its ID
+        msg_id = insert_message(parsed)
+        new_ids.append(msg_id)
+
+    return new_ids
+
+
+def main():
+    channel = os.getenv("SLACK_CHANNEL_ID", DEFAULT_CHANNEL)
+    new_message_ids = fetch_slack_streaming(channel_id=channel)
+    if new_message_ids:
+        enqueue_message_ids(new_message_ids)
+        print(f"Enqueued {len(new_message_ids)} messages:", new_message_ids)
+    else:
+        print("No messages fetched.")
 
 if __name__ == "__main__":
-    channel_id = os.getenv("SLACK_CHANNEL_ID")
-    fetch_slack_streaming()
+    main()
