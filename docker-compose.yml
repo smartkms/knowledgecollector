@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   redis:
     image: 'redis:7-alpine'
@@ -26,16 +24,21 @@ services:
       - "9001:9001"   # Web console
     volumes:
       - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   api:
     build: .
     container_name: api
     command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - MONGO_URI=mongodb://mongo:27017/knowledge_db
-      - JWT_SECRET=${JWT_SECRET}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MONGO_URI: mongodb://mongo:27017/knowledge_db
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       - redis
       - mongo
@@ -47,9 +50,9 @@ services:
     container_name: scheduler
     command: ["python", "scheduler.py"]
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - MONGO_URI=mongodb://mongo:27017/knowledge_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MONGO_URI: mongodb://mongo:27017/knowledge_db
     depends_on:
       - redis
       - mongo
@@ -59,12 +62,34 @@ services:
     container_name: fetch_worker
     command: ["python", "fetch_worker.py"]
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - MONGO_URI=mongodb://mongo:27017/knowledge_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MONGO_URI: mongodb://mongo:27017/knowledge_db
     depends_on:
       - redis
       - mongo
+
+  slack_collector:
+    build:
+      context: .
+      dockerfile: slack_collector/Dockerfile
+    container_name: slack_collector
+    env_file:
+      - .env
+    environment:
+      MINIO_ENDPOINT: minio:9000
+      MINIO_SECURE: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MONGO_URI: mongodb://mongo:27017/knowledge_db
+    depends_on:
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mongo:
+        condition: service_started
+    command: ["uv", "run", "--package", "slack-collector", "python", "-m", "slack_collector.fetch"]
 
 volumes:
   mongo-data:

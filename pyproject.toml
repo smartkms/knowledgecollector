@@ -1,26 +1,33 @@
 [project]
-name = "uv-minimal-example"
+name = "knowledgecollector"
 version = "0.1.0"
-description = "Minimal example for a Python project"
+description = "Knowledge Collector component for SmartKMS app"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = [
-    "fastapi[standard]>=0.115.11",
-    "isodate>=0.7.2",
-    "minio>=7.2.15",
-    "mongo>=0.2.0",
-    "pydantic>=2.10.6",
-    "redis>=6.2.0",
-    "requests>=2.32.4",
-    "slack-sdk>=3.35.0",
-    "uvicorn>=0.34.0",
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+shared = { workspace = true }
+discord-collector = { workspace = true }
+onedrive-collector = { workspace = true }
+
+[tool.uv.workspace]
+members = [
+  "shared",
+  "slack_collector",
+  "discord_collector",
+  "onedrive_collector",
+  "api"
 ]
+
+[tool.uv.build-backend]
+module-root = ""
 
 [dependency-groups]
 dev = [
     "pre-commit>=4.1.0",
     "ruff>=0.9.9",
 ]
-
-[tool.uv]
-package = false

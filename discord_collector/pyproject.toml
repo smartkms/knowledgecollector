@@ -1,0 +1,17 @@
+[project]
+name = "discord_collector"
+version = "0.1.0"
+description = "Discord fetcher for Knowledge Collector"
+requires-python = ">=3.13"
+dependencies = [
+    "shared",
+    "python-dotenv>=1.0.0",
+    "httpx>=0.27.0",
+]
+
+[tool.uv.sources]
+shared = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.8.4,<0.9.0"]
+build-backend = "uv_build"

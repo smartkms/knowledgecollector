@@ -1,27 +1,139 @@
-# uv  minimal example
+# Knowledge Collector
 
-This is a minimal example of a Python application that exposes an endpoint.
+This repository contains a modular data collection system for multiple platforms (Slack, Discord, OneDrive, etc.), with shared utilities for storage, queueing, and database management.
 
-## Local development
+## 📂 Project Structure
 
-1. First, install `uv`: https://github.com/astral-sh/uv?tab=readme-ov-file#installation
-2. Then, install the Python dependencies using `uv sync` (if you don't have the right Python version installed, you can install it using `uv python install 3.13`).
-3. Then, copy the `.env.example` file to `.env` - in this example repo, `.env.example` holds valid values.
-4. Finally, to run the application, run `fastapi dev uv_minimal_example/main.py`.
-
-### Committing
-
-If you want to use this repo as a basis for your own project,
-make sure to also run the following command in the new repo after copying this repo:
-
-```bash
-pre-commit install
+```
+knowledgecollector/
+│
+├─ slack_collector/
+│   ├─ src/slack_collector/
+│   │   ├─ __init__.py
+│   │   └─ fetch.py
+│   └─ pyproject.toml
+│
+├─ shared/
+│   ├─ src/shared/
+│   │   ├─ config.py
+│   │   └─ storage.py
+│   └─ pyproject.toml
+│
+├─ docker-compose.yml
+├─ .env
+└─ .env.age
 ```
 
-## Docker
+- **slack_collector** – Collects Slack messages and uploads attachments to MinIO.
+- **shared** – Common utilities (MinIO storage, Redis queue, MongoDB helpers).
+- **docker-compose.yml** – Spins up Redis, Mongo, MinIO, API, and collectors.
 
-You can also run the application using Docker:
+---
 
-1. Build the Docker image using `docker build -t uv-minimal-example .`
-2. Run the Docker container using `docker run -p 8000:8000 uv-minimal-example`
-3. Now you can access the documentation at http://localhost:8000/docs.
+## ⚡ Running Locally
+
+To run Slack collector locally:
+
+```bash
+uv run --package slack-collector python -m slack_collector.fetch
+```
+
+This ensures `shared` is properly resolved and available as a dependency.
+
+---
+
+## 🐳 Docker Setup
+
+### 1. Build the Slack Collector Image
+
+From the project root:
+
+```bash
+docker build -t slack-collector:latest -f slack_collector/Dockerfile .
+```
+
+---
+
+### 2. Environment Variables
+
+All sensitive settings are stored in `.env`:
+
+```
+SLACK_BOT_TOKEN=xoxb-...
+SLACK_CHANNEL_ID=C12345678
+MINIO_ENDPOINT=minio:9000
+MINIO_SECURE=false
+MINIO_ACCESS_KEY=admin
+MINIO_SECRET_KEY=secret123
+```
+
+Load them into containers using:
+
+```yaml
+env_file:
+  - .env
+```
+
+---
+
+### 3. Docker Compose
+
+The collector is now included as a service:
+
+```yaml
+slack_collector:
+  build:
+    context: .
+    dockerfile: slack_collector/Dockerfile
+  container_name: slack_collector
+  env_file:
+    - .env
+  environment:
+    MINIO_ENDPOINT: minio:9000
+    MINIO_SECURE: "false"
+    REDIS_HOST: redis
+    REDIS_PORT: 6379
+    MONGO_URI: mongodb://mongo:27017/knowledge_db
+  depends_on:
+    - redis
+    - mongo
+    - minio
+  command: >
+    sh -c "
+      echo 'Waiting for MinIO...' &&
+      until nc -z minio 9000; do sleep 1; done &&
+      uv run --package slack-collector python -m slack_collector.fetch
+    "
+```
+
+---
+
+## 🔐 Encrypting the `.env` File
+
+We use **Age** to encrypt environment files.
+
+### 1. Get Your Public Key
+
+```powershell
+type C:\Users\Luka\.config\age\agekey
+```
+
+Copy the line starting with `age1...`.
+
+---
+
+### 2. Encrypt `.env`
+
+```bash
+age -r age1yourpublickeyhere -o .env.age .env
+```
+
+---
+
+### 3. Decrypt When Needed
+
+```bash
+age -d -i C:\Users\Luka\.config\age\agekey .env.age > .env
+```
+
+---
